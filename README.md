@@ -34,6 +34,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/Alexander-McQuen/findns-automa
 ۵. Progress: برای دیدن وضعیت اسکن گزینه ۹ را بزنید.
 
 نکته مهم: برای خروج از صفحه پیشرفت بدون توقف اسکنر، از کلید ترکیبی Ctrl+A و سپس D استفاده کنید.
+
 Developed with ❤️ for the Community
 ⚠️ نکات امنیتی
 اطلاعات دامین و توکن تلگرام شما در فایل مخفی .findns_config ذخیره می‌شود.
