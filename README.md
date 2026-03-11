@@ -16,7 +16,7 @@ Resource Optimized: Uses nice to ensure the scanner doesn't slow down your VPS o
 Run this single command on your fresh Ubuntu/Debian server to get started:
 
 ```bash
-bash <(curl -Ls [https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.sh](https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.sh))
+bash <(curl -Ls [https://raw.githubusercontent.com/Alexander-McQuen//findns-automanager/main/install.sh](https://raw.githubusercontent.com/Alexander-McQuen//findns-automanager/main/install.sh))
 ```
 
 
