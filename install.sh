@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Ultimate Manager v9.2 - JSON Fix
+# Findns Ultimate Manager v9.3 - The Python JSON Parser Patch
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -35,7 +35,7 @@ main_menu() {
     clear
     load_config
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Manager v9.2 (JSON Fix)${NC}"
+    echo -e "${GREEN}    Findns Ultimate Manager v9.3 (Fix)    ${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e " 1)  Install & Build System"
     echo -e " 2)  Set Scanner (Domain/Pubkey/Workers)"
@@ -87,8 +87,8 @@ while true; do
     
     added_new=false
     if [ -f "current_found.json" ]; then
-        # ---> تنها خطی که تغییر کرد اینجاست (اضافه شدن sed برای شکستن خطوط به صورت امن) <---
-        new_ips=$(sed 's/}/\n/g' current_found.json | grep -iE "pass|ok|true|valid" | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
+        # ---> تنها خطی که تغییر کرد اینجاست (استفاده از پایتون داخلی سرور برای خواندن دقیق لیست passed) <---
+        new_ips=$(python3 -c 'import sys, json; d=json.load(sys.stdin); print(" ".join([i["ip"] for i in d.get("passed", [])]))' < current_found.json 2>/dev/null)
         
         for ip in $new_ips; do
             if ! grep -q "$ip" "valid_resolvers.txt" 2>/dev/null; then
