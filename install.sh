@@ -14,6 +14,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Create result file if not exists
+touch "$RESULT_FILE"
+
 if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; fi
 
 main_menu() {
@@ -46,20 +49,49 @@ main_menu() {
     esac
 }
 
-view_progress() {
-    if screen -list | grep -q "findns_worker"; then
-        echo -e "${YELLOW}Attaching to scanner session...${NC}"
-        echo -e "${RED}IMPORTANT:${NC} Press ${GREEN}CTRL + A${NC} then ${GREEN}D${NC} to exit progress view."
-        echo -e "Wait 3 seconds..."
-        sleep 3
-        screen -r findns_worker
-    else
-        echo -e "${RED}Scanner is not running! Start it first (Option 3).${NC}"
-        sleep 2
-        main_menu
+start_scanner() {
+    if [[ -z "$DOMAIN" || -z "$PUBKEY" ]]; then
+        echo -e "${RED}Error: Setup config (Option 2) first!${NC}"; sleep 2; main_menu; return
     fi
+
+    screen -S findns_worker -X quit > /dev/null 2>&1
+    
+    # انتقال متغیرها به یک فایل موقت برای استفاده در Screen
+    echo "DOMAIN=\"$DOMAIN\"" > .env
+    echo "PUBKEY=\"$PUBKEY\"" >> .env
+    echo "WORKERS=\"$WORKERS\"" >> .env
+    echo "TG_TOKEN=\"$TG_TOKEN\"" >> .env
+    echo "TG_ID=\"$TG_ID\"" >> .env
+    echo "RESULT_FILE=\"$RESULT_FILE\"" >> .env
+
+    screen -dmS findns_worker bash -c '
+        source .env
+        touch "$RESULT_FILE"
+        while true; do
+            old_count=$(wc -l < "$RESULT_FILE" 2>/dev/null || echo 0)
+            
+            # اجرای اسکنر با فلگ خروجی اجباری
+            ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$WORKERS" -i ./findns-repo/ir-resolvers.txt -o current_found.json > temp_live.txt
+            
+            # استخراج آی‌پی‌های سالم از خروجی متنی (چون فرمت e2e ساده است)
+            grep "OK" temp_live.txt | awk "{print \$2}" >> "$RESULT_FILE" 2>/dev/null
+            sort -u "$RESULT_FILE" -o "$RESULT_FILE"
+            
+            new_count=$(wc -l < "$RESULT_FILE")
+            if [ "$new_count" -gt "$old_count" ]; then
+                new_ips=$(comm -13 <(sort temp_old.txt 2>/dev/null) <(sort "$RESULT_FILE"))
+                if [ -n "$TG_TOKEN" ]; then
+                    curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Resolvers Found:%0A$new_ips" > /dev/null
+                fi
+            fi
+            cp "$RESULT_FILE" temp_old.txt
+            sleep 10
+        done
+    '
+    echo -e "${GREEN}Scanner restarted successfully! (Fix applied)${NC}"; sleep 2; main_menu
 }
 
+# --- بقیه توابع ثابت می‌مانند ---
 full_setup() {
     echo -e "${YELLOW}Installing...${NC}"
     sudo apt update && sudo apt install git golang-go screen curl -y
@@ -82,33 +114,9 @@ setup_config() {
     echo "DOMAIN=\"$DOMAIN\"" > "$CONFIG_FILE"
     echo "PUBKEY=\"$PUBKEY\"" >> "$CONFIG_FILE"
     echo "WORKERS=\"$WORKERS\"" >> "$CONFIG_FILE"
-    echo "TG_TOKEN=\"$TG_TOKEN\"" >> "$CONFIG_FILE"
-    echo "TG_ID=\"$TG_ID\"" >> "$CONFIG_FILE"
     echo -e "${GREEN}Saved!${NC}"; sleep 1; main_menu
 }
 
-start_scanner() {
-    screen -S findns_worker -X quit > /dev/null 2>&1
-    screen -dmS findns_worker bash -c '
-        source .findns_config
-        while true; do
-            old_count=$(wc -l < "$RESULT_FILE" 2>/dev/null || echo 0)
-            ./findns-repo/findns e2e dnstt --domain $DOMAIN --pubkey $PUBKEY --workers $WORKERS -i ./findns-repo/ir-resolvers.txt > temp_res.txt
-            cat temp_res.txt >> "$RESULT_FILE"
-            sort -u "$RESULT_FILE" -o "$RESULT_FILE"
-            new_count=$(wc -l < "$RESULT_FILE")
-            if [ "$new_count" -gt "$old_count" ]; then
-                new_ips=$(comm -13 <(sort temp_old_results.txt 2>/dev/null) <(sort "$RESULT_FILE"))
-                curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Resolvers Found:%0A$new_ips" > /dev/null
-            fi
-            cp "$RESULT_FILE" temp_old_results.txt
-            sleep 10
-        done
-    '
-    echo -e "${GREEN}Scanner started! Use Option 9 to see live progress.${NC}"; sleep 2; main_menu
-}
-
-# (سایر توابع مثل قبل باقی می‌مانند...)
 view_results() {
     clear
     [ -s "$RESULT_FILE" ] && cat "$RESULT_FILE" || echo "No results yet."
@@ -121,10 +129,12 @@ stop_scanner() {
     echo -e "${RED}Stopped.${NC}"; sleep 2; main_menu
 }
 
-uninstall_all() {
-    read -p "Are you sure? (y/n): " confirm
-    [[ $confirm == [yY] ]] && rm -rf ~/findns-work && screen -S findns_worker -X quit && exit 0
-    main_menu
+view_progress() {
+    if screen -list | grep -q "findns_worker"; then
+        screen -r findns_worker
+    else
+        echo -e "${RED}Scanner is not running!${NC}"; sleep 2; main_menu
+    fi
 }
 
 setup_telegram() {
@@ -133,6 +143,12 @@ setup_telegram() {
     echo "TG_TOKEN=\"$TG_TOKEN\"" >> "$CONFIG_FILE"
     echo "TG_ID=\"$TG_ID\"" >> "$CONFIG_FILE"
     curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=✅ Notification Active"
+    main_menu
+}
+
+uninstall_all() {
+    read -p "Are you sure? (y/n): " confirm
+    [[ $confirm == [yY] ]] && rm -rf ~/findns-work && screen -S findns_worker -X quit && exit 0
     main_menu
 }
 
