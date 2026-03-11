@@ -15,10 +15,9 @@ Resource Optimized: Uses nice to ensure the scanner doesn't slow down your VPS o
 ⚡ Quick Installation
 Run this single command on your fresh Ubuntu/Debian server to get started:
 
-Bash
-bash <(curl -Ls https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.sh)""
-[!IMPORTANT]
-Replace YOUR_USERNAME and YOUR_REPO_NAME with your actual GitHub details.
+```bash
+bash <(curl -Ls [https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.sh](https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/install.sh))
+
 
 🛠 How to Use
 Once the menu opens, follow these simple steps:
