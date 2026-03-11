@@ -35,8 +35,13 @@ bash <(curl -Ls https://raw.githubusercontent.com/Alexander-McQuen/findns-automa
 
 نکته مهم: برای خروج از صفحه پیشرفت بدون توقف اسکنر، از کلید ترکیبی Ctrl+A و سپس D استفاده کنید.
 
-Developed with ❤️ for the Community
+
 ⚠️ نکات امنیتی
 اطلاعات دامین و توکن تلگرام شما در فایل مخفی .findns_config ذخیره می‌شود.
 
 برای پاک‌سازی کامل همه‌چیز از سرور، می‌توانید از گزینه ۷ (Uninstall) استفاده کنید.
+
+
+
+Developed with ❤️ for the Community
+
