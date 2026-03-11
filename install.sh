@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Ultimate Manager v10.0 - Dynamic Hunter
+# Findns Ultimate Manager v10.1 - Zero Dependency Dynamic Hunter
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -35,7 +35,7 @@ main_menu() {
     clear
     load_config
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Manager v10.0 (Hunter)${NC}"
+    echo -e "${GREEN}    Findns Ultimate Manager v10.1 (Auto)  ${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e " 1)  Install & Build System"
     echo -e " 2)  Set Scanner (Domain/Pubkey/Workers)"
@@ -60,8 +60,7 @@ main_menu() {
 }
 
 full_setup() {
-    # ابزار prips برای باز کردن CIDR ها اضافه شد
-    sudo apt update && sudo apt install git golang-go screen curl prips -y
+    sudo apt update && sudo apt install git golang-go screen curl -y
     rm -rf findns-repo && git clone https://github.com/SamNet-dev/findns.git findns-repo
     cd findns-repo && go build -o findns ./cmd && cd ..
     go install www.bamsoftware.com/git/dnstt.git/dnstt-client@latest
@@ -84,22 +83,36 @@ while true; do
     W_COUNT=${WORKERS:-50}
     if [[ ! "$W_COUNT" =~ ^[0-9]+$ ]]; then W_COUNT=50; fi
     
-    # 1. دانلود آخرین لیست رنج آی‌پی‌های ایران از گیت‌هاب (می‌توانی لینک را تغییر دهی)
-    curl -s "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/ir.cidr" > ir_cidrs.txt
+    # 1. تلاش برای دانلود لیست رنج‌ها با تایم‌اوت 10 ثانیه
+    curl -s --connect-timeout 10 "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/ir.cidr" > ir_cidrs.txt
     
-    # 2. انتخاب تصادفی ۵۰ رنج برای جلوگیری از هنگ کردن سرور
-    shuf -n 50 ir_cidrs.txt > target_cidrs.txt
+    # 2. بررسی اینکه فایل دانلود شده یا نه
+    if [ ! -s ir_cidrs.txt ]; then
+        # اگر دانلود نشد، از فایل محلی قدیمی استفاده کن
+        cp ./findns-repo/ir-resolvers.txt current_scan.txt
+    else
+        # استخراج و تبدیل با پایتون (بدون نیاز به prips)
+        shuf -n 30 ir_cidrs.txt | python3 -c '
+import sys, ipaddress, random
+ips = []
+for line in sys.stdin:
+    try:
+        net = ipaddress.ip_network(line.strip(), strict=False)
+        hosts = list(net.hosts())
+        if len(hosts) > 256: hosts = random.sample(hosts, 256)
+        ips.extend([str(ip) for ip in hosts])
+    except: pass
+random.shuffle(ips)
+with open("current_scan.txt", "w") as f:
+    f.write("\n".join(ips[:4000]))' 2>/dev/null
+    fi
     
-    # 3. تبدیل رنج‌ها به آی‌پی‌های تکی
-    > dynamic_ips.txt
-    while read -r cidr; do
-        prips "$cidr" >> dynamic_ips.txt 2>/dev/null
-    done < target_cidrs.txt
+    # تور نجات نهایی: اگر باز هم لیست خالی بود
+    if [ ! -s current_scan.txt ]; then
+        cp ./findns-repo/ir-resolvers.txt current_scan.txt
+    fi
     
-    # 4. انتخاب ۵۰۰۰ آی‌پی رندوم از بین آن‌ها برای اسکن سریع در این چرخه
-    shuf -n 5000 dynamic_ips.txt > current_scan.txt
-    
-    # 5. اجرای اسکنر روی فایلِ داغ و جدید
+    # اجرای اسکنر
     ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$W_COUNT" -i current_scan.txt -o current_found.json
     
     added_new=false
@@ -110,23 +123,22 @@ while true; do
             if ! grep -q "$ip" "valid_resolvers.txt" 2>/dev/null; then
                 echo "$ip" >> "valid_resolvers.txt"
                 added_new=true
-                [ -n "$TG_TOKEN" ] && curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Dynamic IP Found: $ip" > /dev/null
+                [ -n "$TG_TOKEN" ] && curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 Dynamic IP Found: $ip" > /dev/null
             fi
         done
         
         if [ "$added_new" = true ] && [ -s "valid_resolvers.txt" ] && [ -n "$TG_TOKEN" ]; then
-            curl -s -F document=@"valid_resolvers.txt" "https://api.telegram.org/bot$TG_TOKEN/sendDocument?chat_id=$TG_ID&caption=📄 Updated Dynamic Resolver List" > /dev/null
+            curl -s -F document=@"valid_resolvers.txt" "https://api.telegram.org/bot$TG_TOKEN/sendDocument?chat_id=$TG_ID&caption=📄 Updated Dynamic List" > /dev/null
         fi
         rm -f current_found.json
     fi
-    # پاکسازی فایل‌های موقت قبل از شروع دور بعدی
-    rm -f ir_cidrs.txt target_cidrs.txt dynamic_ips.txt current_scan.txt
+    rm -f ir_cidrs.txt current_scan.txt
     sleep 5
 done
 WORKER_EOF
     chmod +x worker.sh
     screen -dmS findns_worker ./worker.sh
-    echo -e "${GREEN}Dynamic Hunter Started! Fetching from GitHub and scanning...${NC}"; sleep 2; main_menu
+    echo -e "${GREEN}Auto-Hunter Started! Progress active on Option 6.${NC}"; sleep 2; main_menu
 }
 
 speed_test() {
