@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Ultimate Manager v9.0 - Flawless Edition
+# Findns Ultimate Manager v9.2 - JSON Fix
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -35,7 +35,7 @@ main_menu() {
     clear
     load_config
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Manager v9.0 (Perfect)${NC}"
+    echo -e "${GREEN}    Findns Ultimate Manager v9.2 (JSON Fix)${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e " 1)  Install & Build System"
     echo -e " 2)  Set Scanner (Domain/Pubkey/Workers)"
@@ -63,7 +63,6 @@ full_setup() {
     sudo apt update && sudo apt install git golang-go screen curl -y
     rm -rf findns-repo && git clone https://github.com/SamNet-dev/findns.git findns-repo
     cd findns-repo && go build -o findns ./cmd && cd ..
-    # نصب ابزار حیاتی که در نسخه قبل پاک شده بود!
     go install www.bamsoftware.com/git/dnstt.git/dnstt-client@latest
     cp ~/go/bin/dnstt-client ./findns-repo/
     echo -e "${GREEN}Installation & Build Completed!${NC}"; sleep 2; main_menu
@@ -84,12 +83,12 @@ while true; do
     W_COUNT=${WORKERS:-50}
     if [[ ! "$W_COUNT" =~ ^[0-9]+$ ]]; then W_COUNT=50; fi
     
-    # اجرای تمیز: پروگرس روی صفحه می‌ماند و فقط آی‌پی‌های Pass شده وارد فایل JSON می‌شوند
     ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$W_COUNT" -i ./findns-repo/ir-resolvers.txt -o current_found.json
     
     added_new=false
     if [ -f "current_found.json" ]; then
-        new_ips=$(grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" current_found.json)
+        # ---> تنها خطی که تغییر کرد اینجاست (اضافه شدن sed برای شکستن خطوط به صورت امن) <---
+        new_ips=$(sed 's/}/\n/g' current_found.json | grep -iE "pass|ok|true|valid" | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
         
         for ip in $new_ips; do
             if ! grep -q "$ip" "valid_resolvers.txt" 2>/dev/null; then
@@ -99,7 +98,6 @@ while true; do
             fi
         done
         
-        # فایل فقط زمانی ارسال می‌شود که واقعاً آی‌پی جدیدی اضافه شده باشد!
         if [ "$added_new" = true ] && [ -s "valid_resolvers.txt" ] && [ -n "$TG_TOKEN" ]; then
             curl -s -F document=@"valid_resolvers.txt" "https://api.telegram.org/bot$TG_TOKEN/sendDocument?chat_id=$TG_ID&caption=📄 Updated Resolver List" > /dev/null
         fi
@@ -124,10 +122,7 @@ speed_test() {
     > $temp_speed
     
     while read -r ip; do
-        # ارسال ۲ پینگ با تایم‌اوت ۱ ثانیه برای افزایش سرعت تست
         avg_ping=$(ping -c 2 -W 1 "$ip" 2>/dev/null | tail -1 | awk -F '/' '{print $5}')
-        
-        # اطمینان از اینکه خروجی پینگ واقعاً عدد است
         if [[ -n "$avg_ping" && "$avg_ping" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
             echo -e "${GREEN}$ip${NC} | ${YELLOW}${avg_ping}ms${NC}"
             echo "$avg_ping $ip" >> $temp_speed
@@ -142,7 +137,6 @@ speed_test() {
     read -p "Press Enter to return..." ; main_menu
 }
 
-# --- سایر توابع کمکی ---
 setup_config() { read -p "Domain: " d; DOMAIN=${d:-$DOMAIN}; read -p "Pubkey: " p; PUBKEY=${p:-$PUBKEY}; read -p "Workers (50): " w; WORKERS=${w:-$WORKERS}; save_all; main_menu; }
 setup_telegram() { read -p "Bot Token: " t; TG_TOKEN=${t:-$TG_TOKEN}; read -p "Chat ID: " i; TG_ID=${i:-$TG_ID}; save_all; main_menu; }
 show_config() { clear; load_config; echo -e "Domain: $DOMAIN\nPubkey: $PUBKEY\nWorkers: $WORKERS\nTG Token: $TG_TOKEN\nTG ID: $TG_ID"; read -p "Enter..."; main_menu; }
