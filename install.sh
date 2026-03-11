@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Auto-Manager v3.5 - Alex Edition
+# Findns Ultimate Manager v4.0 - Anti Ctrl+C Edition
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -14,95 +14,100 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# لود کردن تنظیمات ذخیره شده
 [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 
 main_menu() {
     clear
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Auto-Manager v3.5 (Alex)       ${NC}"
+    echo -e "${GREEN}    Findns Auto-Manager v4.0 (Anti-Kill)  ${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e "1) Full Setup (Install & Build)"
     echo -e "2) Set Config (Domain, Pubkey)"
     echo -e "3) Start Scanner (Background)"
-    echo -e "4) View Found Results (File)"
-    echo -e "5) Stop Scanner"
+    echo -e "4) View Found Results"
+    echo -e "5) ${RED}Stop Scanner${NC}"
     echo -e "8) Telegram Setup"
-    echo -e "9) Safe Dashboard (View Progress)"
-    echo -e "10) ${CYAN}[CHECK]${NC} Show Current Settings"
-    echo -e "7) ${RED}Uninstall Everything${NC}"
+    echo -e "9) ${YELLOW}View Progress (Safe to Ctrl+C)${NC}"
+    echo -e "10) Check Current Settings"
+    echo -e "7) Uninstall Everything"
     echo -e "6) Exit"
     echo -e "${BLUE}------------------------------------------${NC}"
     read -p "Select [1-10]: " choice
     case $choice in
         1) full_setup ;; 2) setup_config ;; 3) start_scanner ;; 
         4) view_results ;; 5) stop_scanner ;; 8) setup_telegram ;; 
-        9) safe_dashboard ;; 10) show_config ;; 7) uninstall_all ;; 
+        9) view_progress ;; 10) show_config ;; 7) uninstall_all ;; 
         6) exit 0 ;; *) main_menu ;;
     esac
 }
 
-show_config() {
-    clear
-    echo -e "${YELLOW}--- Current Settings ---${NC}"
-    echo -e "Domain:     ${GREEN}${DOMAIN:-Not Set}${NC}"
-    echo -e "Public Key: ${GREEN}${PUBKEY:-Not Set}${NC}"
-    echo -e "Workers:    ${GREEN}${WORKERS:-50}${NC}"
-    echo -e "------------------------"
-    echo -e "TG Token:   ${CYAN}${TG_TOKEN:-Not Set}${NC}"
-    echo -e "TG Chat ID: ${CYAN}${TG_ID:-Not Set}${NC}"
-    echo -e "${BLUE}------------------------${NC}"
-    read -p "Press Enter to return to menu..."
-    main_menu
-}
-
 start_scanner() {
-    # چک کردن تنظیمات قبل از شروع
     if [[ -z "$DOMAIN" || -z "$PUBKEY" ]]; then
-        echo -e "${RED}Error: Setup config first (Option 2)!${NC}"; sleep 2; main_menu; return
+        echo -e "${RED}Error: Setup config first!${NC}"; sleep 2; main_menu; return
     fi
     
     screen -S findns_worker -X quit > /dev/null 2>&1
     sleep 1
-    
-    cat << ENV_EOF > .env
-DOMAIN="$DOMAIN"
-PUBKEY="$PUBKEY"
-WORKERS="$WORKERS"
-TG_TOKEN="$TG_TOKEN"
-TG_ID="$TG_ID"
-RESULT_FILE="$RESULT_FILE"
-ENV_EOF
 
-    screen -dmS findns_worker bash -c '
-        source .env
-        while true; do
-            [ -f "$RESULT_FILE" ] || touch "$RESULT_FILE"
-            old_count=$(wc -l < "$RESULT_FILE")
-            
-            ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$WORKERS" -i ./findns-repo/ir-resolvers.txt -o current_found.json > temp_live.log 2>&1
-            
-            if [ -f "current_found.json" ]; then
-                grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" current_found.json >> "$RESULT_FILE"
-                sort -u "$RESULT_FILE" -o "$RESULT_FILE"
-                rm current_found.json
-            fi
-            
-            new_count=$(wc -l < "$RESULT_FILE")
-            if [ "$new_count" -gt "$old_count" ]; then
-                new_ips=$(comm -13 <(sort temp_old.txt 2>/dev/null) <(sort "$RESULT_FILE"))
-                if [ -n "$TG_TOKEN" ] && [ -n "$new_ips" ]; then
-                    curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Resolvers Found:%0A$new_ips" > /dev/null
-                fi
-            fi
-            cp "$RESULT_FILE" temp_old.txt
-            sleep 10
-        done
-    '
-    echo -e "${GREEN}Scanner is running! Checking TG...${NC}"; sleep 2; main_menu
+    # ایجاد اسکریپت داخلی که در برابر Ctrl+C مقاوم است
+    cat << 'INNER_EOF' > worker.sh
+#!/bin/bash
+source .findns_config
+# این خط باعث می‌شود اسکریپت سیگنال Ctrl+C را نادیده بگیرد
+trap '' INT SIGINT SIGTERM
+
+while true; do
+    old_count=$(wc -l < "valid_resolvers.txt" 2>/dev/null || echo 0)
+    
+    # اجرای اسکنر (بدون هدایت خروجی به فایل تا نوار پیشرفت دیده شود)
+    ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$WORKERS" -i ./findns-repo/ir-resolvers.txt -o current_found.json
+    
+    if [ -f "current_found.json" ]; then
+        grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" current_found.json >> "valid_resolvers.txt"
+        sort -u "valid_resolvers.txt" -o "valid_resolvers.txt"
+        rm current_found.json
+    fi
+    
+    new_count=$(wc -l < "valid_resolvers.txt")
+    if [ "$new_count" -gt "$old_count" ]; then
+        new_ips=$(comm -13 <(sort temp_old.txt 2>/dev/null) <(sort "valid_resolvers.txt"))
+        if [ -n "$TG_TOKEN" ] && [ -n "$new_ips" ]; then
+            curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Resolvers Found:%0A$new_ips" > /dev/null
+        fi
+    fi
+    cp "valid_resolvers.txt" temp_old.txt
+    echo "Wait 10s for next round..."
+    sleep 10
+done
+INNER_EOF
+    chmod +x worker.sh
+
+    # اجرای اسکریپت مقاوم در Screen
+    screen -dmS findns_worker ./worker.sh
+    echo -e "${GREEN}Scanner started! Now it is safe to use Option 9.${NC}"; sleep 2; main_menu
 }
 
-# سایر توابع (بدون تغییر)
+view_progress() {
+    if screen -list | grep -q "findns_worker"; then
+        echo -e "${YELLOW}Entering Scanner View...${NC}"
+        echo -e "${GREEN}NOTE:${NC} Even if you press ${RED}Ctrl+C${NC}, the scanner will ${GREEN}STAY ALIVE${NC}."
+        echo -e "To return to menu, press ${CYAN}Ctrl+C${NC} then run the manager again."
+        sleep 3
+        screen -r findns_worker
+    else
+        echo -e "${RED}Scanner is not running!${NC}"; sleep 2; main_menu
+    fi
+}
+
+show_config() {
+    clear
+    echo -e "${YELLOW}--- Settings ---${NC}"
+    echo -e "Domain: ${GREEN}${DOMAIN:-N/A}${NC}"
+    echo -e "Pubkey: ${GREEN}${PUBKEY:-N/A}${NC}"
+    echo -e "TG Chat: ${CYAN}${TG_ID:-N/A}${NC}"
+    read -p "Press Enter..." ; main_menu
+}
+
 full_setup() {
     sudo apt update && sudo apt install git golang-go screen curl -y
     rm -rf findns-repo && git clone https://github.com/SamNet-dev/findns.git findns-repo
@@ -113,28 +118,26 @@ full_setup() {
 }
 
 setup_config() {
-    read -p "Domain: " DOMAIN; read -p "Pubkey: " PUBKEY; read -p "Workers: " WORKERS
-    echo "DOMAIN=\"$DOMAIN\"" > "$CONFIG_FILE"; echo "PUBKEY=\"$PUBKEY\"" >> "$CONFIG_FILE"; echo "WORKERS=\"$WORKERS\"" >> "$CONFIG_FILE"
+    read -p "Domain: " DOMAIN; read -p "Pubkey: " PUBKEY; read -p "Workers (50): " WORKERS
+    echo "DOMAIN=\"$DOMAIN\"" > "$CONFIG_FILE"; echo "PUBKEY=\"$PUBKEY\"" >> "$CONFIG_FILE"; echo "WORKERS=\"${WORKERS:-50}\"" >> "$CONFIG_FILE"
     echo "TG_TOKEN=\"$TG_TOKEN\"" >> "$CONFIG_FILE"; echo "TG_ID=\"$TG_ID\"" >> "$CONFIG_FILE"
     main_menu
 }
 
-safe_dashboard() {
-    clear; echo -e "${YELLOW}Live Log (Ctrl+C to exit)...${NC}"; tail -f temp_live.log; main_menu
-}
-
 view_results() {
-    clear; cat "$RESULT_FILE" 2>/dev/null || echo "Empty."; read -p "Press Enter..."; main_menu
+    clear; cat "$RESULT_FILE" 2>/dev/null || echo "No results."; read -p "Enter..."; main_menu
 }
 
 stop_scanner() {
-    screen -S findns_worker -X quit > /dev/null 2>&1; echo "Stopped."; sleep 2; main_menu
+    screen -S findns_worker -X quit > /dev/null 2>&1
+    pkill -f worker.sh
+    echo -e "${RED}Scanner Stopped.${NC}"; sleep 2; main_menu
 }
 
 setup_telegram() {
     read -p "Token: " TG_TOKEN; read -p "Chat ID: " TG_ID
     echo "TG_TOKEN=\"$TG_TOKEN\"" >> "$CONFIG_FILE"; echo "TG_ID=\"$TG_ID\"" >> "$CONFIG_FILE"
-    curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=✅ System Active!"; main_menu
+    curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=✅ Notification Active!"; main_menu
 }
 
 uninstall_all() {
