@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Ultimate Manager v9.3 - The Python JSON Parser Patch
+# Findns Ultimate Manager v10.0 - Dynamic Hunter
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -35,7 +35,7 @@ main_menu() {
     clear
     load_config
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Manager v9.3 (Fix)    ${NC}"
+    echo -e "${GREEN}    Findns Ultimate Manager v10.0 (Hunter)${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e " 1)  Install & Build System"
     echo -e " 2)  Set Scanner (Domain/Pubkey/Workers)"
@@ -60,7 +60,8 @@ main_menu() {
 }
 
 full_setup() {
-    sudo apt update && sudo apt install git golang-go screen curl -y
+    # ابزار prips برای باز کردن CIDR ها اضافه شد
+    sudo apt update && sudo apt install git golang-go screen curl prips -y
     rm -rf findns-repo && git clone https://github.com/SamNet-dev/findns.git findns-repo
     cd findns-repo && go build -o findns ./cmd && cd ..
     go install www.bamsoftware.com/git/dnstt.git/dnstt-client@latest
@@ -83,32 +84,49 @@ while true; do
     W_COUNT=${WORKERS:-50}
     if [[ ! "$W_COUNT" =~ ^[0-9]+$ ]]; then W_COUNT=50; fi
     
-    ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$W_COUNT" -i ./findns-repo/ir-resolvers.txt -o current_found.json
+    # 1. دانلود آخرین لیست رنج آی‌پی‌های ایران از گیت‌هاب (می‌توانی لینک را تغییر دهی)
+    curl -s "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/ir.cidr" > ir_cidrs.txt
+    
+    # 2. انتخاب تصادفی ۵۰ رنج برای جلوگیری از هنگ کردن سرور
+    shuf -n 50 ir_cidrs.txt > target_cidrs.txt
+    
+    # 3. تبدیل رنج‌ها به آی‌پی‌های تکی
+    > dynamic_ips.txt
+    while read -r cidr; do
+        prips "$cidr" >> dynamic_ips.txt 2>/dev/null
+    done < target_cidrs.txt
+    
+    # 4. انتخاب ۵۰۰۰ آی‌پی رندوم از بین آن‌ها برای اسکن سریع در این چرخه
+    shuf -n 5000 dynamic_ips.txt > current_scan.txt
+    
+    # 5. اجرای اسکنر روی فایلِ داغ و جدید
+    ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$W_COUNT" -i current_scan.txt -o current_found.json
     
     added_new=false
     if [ -f "current_found.json" ]; then
-        # ---> تنها خطی که تغییر کرد اینجاست (استفاده از پایتون داخلی سرور برای خواندن دقیق لیست passed) <---
         new_ips=$(python3 -c 'import sys, json; d=json.load(sys.stdin); print(" ".join([i["ip"] for i in d.get("passed", [])]))' < current_found.json 2>/dev/null)
         
         for ip in $new_ips; do
             if ! grep -q "$ip" "valid_resolvers.txt" 2>/dev/null; then
                 echo "$ip" >> "valid_resolvers.txt"
                 added_new=true
-                [ -n "$TG_TOKEN" ] && curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 Passed IP Found: $ip" > /dev/null
+                [ -n "$TG_TOKEN" ] && curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d "chat_id=$TG_ID" -d "text=🎯 New Dynamic IP Found: $ip" > /dev/null
             fi
         done
         
         if [ "$added_new" = true ] && [ -s "valid_resolvers.txt" ] && [ -n "$TG_TOKEN" ]; then
-            curl -s -F document=@"valid_resolvers.txt" "https://api.telegram.org/bot$TG_TOKEN/sendDocument?chat_id=$TG_ID&caption=📄 Updated Resolver List" > /dev/null
+            curl -s -F document=@"valid_resolvers.txt" "https://api.telegram.org/bot$TG_TOKEN/sendDocument?chat_id=$TG_ID&caption=📄 Updated Dynamic Resolver List" > /dev/null
         fi
         rm -f current_found.json
     fi
+    # پاکسازی فایل‌های موقت قبل از شروع دور بعدی
+    rm -f ir_cidrs.txt target_cidrs.txt dynamic_ips.txt current_scan.txt
     sleep 5
 done
 WORKER_EOF
     chmod +x worker.sh
     screen -dmS findns_worker ./worker.sh
-    echo -e "${GREEN}Scanner Started! Progress bar is active (Option 6).${NC}"; sleep 2; main_menu
+    echo -e "${GREEN}Dynamic Hunter Started! Fetching from GitHub and scanning...${NC}"; sleep 2; main_menu
 }
 
 speed_test() {
