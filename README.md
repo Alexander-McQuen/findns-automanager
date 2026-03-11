@@ -46,6 +46,13 @@ bash <(curl -Ls https://raw.githubusercontent.com/Alexander-McQuen/findns-automa
 
 برای پاک‌سازی کامل همه‌چیز از سرور، می‌توانید از گزینه ۷ (Uninstall) استفاده کنید.
 
+💎 Credits & Acknowledgments
+این پروژه بر پایه تلاش‌های ارزشمند توسعه‌دهندگان زیر بنا شده است:
+
+findns: ابزار قدرتمند اسکن و تست ریسالورها، توسعه داده شده توسط SamNet-dev.
+
+dnstt: پروتکل اصلی تونل DNS، شاهکاری از David Fifield (bamsoftware).
+
 
 
 Developed with ❤️ for the Community
