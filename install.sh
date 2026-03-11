@@ -1,5 +1,5 @@
 #!/bin/bash
-# Findns Ultimate Manager v10.2 - Anti-Filter Hunter
+# Findns Ultimate Manager v10.3 - True Dynamic Hunter
 
 mkdir -p ~/findns-work && cd ~/findns-work
 
@@ -35,7 +35,7 @@ main_menu() {
     clear
     load_config
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Manager v10.2 (Pro)   ${NC}"
+    echo -e "${GREEN}    Findns Ultimate Manager v10.3 (Pro)   ${NC}"
     echo -e "${BLUE}==========================================${NC}"
     echo -e " 1)  Install & Build System"
     echo -e " 2)  Set Scanner (Domain/Pubkey/Workers)"
@@ -83,19 +83,14 @@ while true; do
     W_COUNT=${WORKERS:-50}
     if [[ ! "$W_COUNT" =~ ^[0-9]+$ ]]; then W_COUNT=50; fi
     
-    # 1. تلاش اول: دانلود از پروکسی اول گیت‌هاب
-    curl -s -L --connect-timeout 10 "https://ghproxy.net/https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/ir.cidr" > ir_cidrs.txt
+    # 1. دانلود از لینک طلایی و معتبر ipverse
+    curl -s -L --connect-timeout 10 "https://cdn.jsdelivr.net/gh/ipverse/rir-ip@master/country/ir/ipv4-aggregated.txt" > ir_cidrs.txt
     
-    # 2. تلاش دوم (اگر اولی مسدود بود): دانلود از پروکسی دوم
-    if [ ! -s ir_cidrs.txt ]; then
-        curl -s -L --connect-timeout 10 "https://raw.githubusercontents.com/herrbischoff/country-ip-blocks/master/ipv4/ir.cidr" > ir_cidrs.txt
-    fi
-    
-    # 3. بررسی موفقیت و استخراج آی‌پی‌ها
-    if [ ! -s ir_cidrs.txt ]; then
+    # 2. بررسی موفقیت و استخراج آی‌پی‌ها (نادیده گرفتن خطوط توضیحات با grep)
+    if [ ! -s ir_cidrs.txt ] || ! grep -q "[0-9]" ir_cidrs.txt; then
         cp ./findns-repo/ir-resolvers.txt current_scan.txt
     else
-        shuf -n 30 ir_cidrs.txt | python3 -c '
+        grep -v '^#' ir_cidrs.txt | shuf -n 30 | python3 -c '
 import sys, ipaddress, random
 ips = []
 for line in sys.stdin:
@@ -110,10 +105,12 @@ with open("current_scan.txt", "w") as f:
     f.write("\n".join(ips[:4000]))' 2>/dev/null
     fi
     
+    # تور نجات نهایی
     if [ ! -s current_scan.txt ]; then
         cp ./findns-repo/ir-resolvers.txt current_scan.txt
     fi
     
+    # اجرای اسکنر روی فایل داغ
     ./findns-repo/findns e2e dnstt --domain "$DOMAIN" --pubkey "$PUBKEY" --workers "$W_COUNT" -i current_scan.txt -o current_found.json
     
     added_new=false
@@ -139,7 +136,7 @@ done
 WORKER_EOF
     chmod +x worker.sh
     screen -dmS findns_worker ./worker.sh
-    echo -e "${GREEN}Anti-Filter Hunter Started!${NC}"; sleep 2; main_menu
+    echo -e "${GREEN}True Dynamic Hunter Started! Progress active on Option 6.${NC}"; sleep 2; main_menu
 }
 
 speed_test() {
