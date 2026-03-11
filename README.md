@@ -1,42 +1,41 @@
-🚀 Findns Auto-Manager & Ultimate Scanner
-An interactive, all-in-one management tool for Findns. This script automates the process of installing, configuring, and running a continuous background scanner to find working resolvers for your DNSTT tunnels.
+🚀 Findns Ultimate Auto-Manager (Alex Edition)
+یک ابزار مدیریت هوشمند و همه‌کاره برای اسکنر findns که به شما اجازه می‌دهد ریسالورهای (Resolvers) سالم برای پروتکل DNSTT را به صورت خودکار پیدا کرده و نتایج را مستقیماً در تلگرام دریافت کنید.
 
-✨ Features
-One-Click Setup: Automatically installs Go, Git, Screen, and builds the findns and dnstt-client binaries.
+✨ قابلیت‌های کلیدی
+نصب خودکار (One-Click Setup): نصب تمام پیش‌نیازها (Go, Git, Screen) و بیلد کردن پروژه‌های مورد نیاز تنها با یک گزینه.
 
-Background Scanning: Runs the scanner in a screen session so it keeps working even after you disconnect from SSH.
+اسکن در پس‌زمینه (Background Scanning): اجرای اسکنر در محیط screen که اجازه می‌دهد حتی بعد از بستن ترمینال، اسکنر ۲۴/۷ فعال بماند.
 
-Smart Result Management: Collects working resolvers into a clean file, automatically removes duplicates, and sorts them.
+اطلاع‌رسانی هوشمند تلگرام: ارسال لحظه‌ای آی‌پـی‌های جدید به بات تلگرام شما (بدون تکرار).
 
-Interactive Menu: No need to remember long commands. Manage everything through a simple numbered menu.
+داشبورد پیشرفت (Visual Dashboard): مشاهده زنده نوار پیشرفت اسکن، تعداد موفقیت‌ها و خطاها.
 
-Resource Optimized: Uses nice to ensure the scanner doesn't slow down your VPS or other services like 3x-ui.
+مدیریت تنظیمات: امکان مشاهده و ویرایش آسان دامین، پابلیک‌کی و تنظیمات تلگرام از داخل منو.
 
-⚡ Quick Installation
-Run this single command on your fresh Ubuntu/Debian server to get started:
+طراحی ضد ضربه (Anti-Kill): مقاوم‌سازی اسکریپت در برابر قطع شدن ناگهانی با کلیدهای Ctrl+C.
 
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/Alexander-McQuen/findns-automanager/main/install.sh)
+🛠 پیش‌نیازها
+یک سرور لینوکس (ترجیحاً Ubuntu 20.04 یا بالاتر).
+
+یک توکن بات تلگرام (از طریق @BotFather).
+
+دامین و پابلیک‌کی ست شده برای سرور DNSTT.
+
+🚀 شروع سریع
+برای اجرای مستقیم مدیریت در سرور خود، از دستور زیر استفاده کنید:
+```Bash
+bash <(curl -Ls https://raw.githubusercontent.com/Alexander-McQuen/findns-automanager/main/install.sh) 
 ```
+📖 راهنمای استفاده
+۱. Setup: ابتدا گزینه ۱ را بزنید تا سیستم نصب و بیلد شود.
+۲. Config: با گزینه ۲ دامین و پابلیک‌کی خود را وارد کنید.
+۳. Telegram: از طریق گزینه ۸ توکن و چت‌آیدی خود را ست کنید.
+۴. Start: با گزینه ۳ اسکنر را راه بیندازید.
+۵. Progress: برای دیدن وضعیت اسکن گزینه ۹ را بزنید.
 
+نکته مهم: برای خروج از صفحه پیشرفت بدون توقف اسکنر، از کلید ترکیبی Ctrl+A و سپس D استفاده کنید.
 
-🛠 How to Use
-Once the menu opens, follow these simple steps:
+⚠️ نکات امنیتی
+اطلاعات دامین و توکن تلگرام شما در فایل مخفی .findns_config ذخیره می‌شود.
 
-Select 1 (Full Setup): This will prepare your server and build all necessary files.
-
-Select 2 (Set Config): Enter your DNSTT Domain and Public Key.
-
-Select 3 (Start Scanner): The engine will start searching for resolvers in the background.
-
-Select 4 (View Results): Check this periodically to see your list of working resolvers.
-
-📋 Requirements
-OS: Ubuntu 20.04 or newer (Recommended).
-
-User: Root access or sudo privileges.
-
-Resources: At least 512MB RAM.
-
-🤝 Credits
-This manager is a wrapper for the excellent findns tool by SamNet-dev.
+برای پاک‌سازی کامل همه‌چیز از سرور، می‌توانید از گزینه ۷ (Uninstall) استفاده کنید.
