@@ -53,10 +53,13 @@ main_menu() {
 show_config() {
     clear; load_config
     echo -e "${YELLOW}>>> Current Settings <<<${NC}"
-    echo -e "Domain:  ${CYAN}${DOMAIN:-[NOT SET]}${NC}"
-    echo -e "Pubkey:  ${CYAN}${PUBKEY:-[NOT SET]}${NC}"
-    echo -e "Workers: ${CYAN}${WORKERS:-50}${NC}"
-    echo -e "TG ID:   ${CYAN}${TG_ID:-[NOT SET]}${NC}"
+    echo -e "------------------------"
+    echo -e "Domain:    ${CYAN}${DOMAIN:-[NOT SET]}${NC}"
+    echo -e "Pubkey:    ${CYAN}${PUBKEY:-[NOT SET]}${NC}"
+    echo -e "Workers:   ${CYAN}${WORKERS:-50}${NC}"
+    echo -e "------------------------"
+    echo -e "TG Token:  ${GREEN}${TG_TOKEN:-[NOT SET]}${NC}"
+    echo -e "TG Chat ID: ${GREEN}${TG_ID:-[NOT SET]}${NC}"
     echo -e "------------------------"
     read -p "Press Enter to return..." ; main_menu
 }
