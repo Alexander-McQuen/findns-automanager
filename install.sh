@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# این بخش برای دانلود و آماده‌سازی اولیه است
-echo "Preparing Findns Auto-Manager..."
+# Preparation
 mkdir -p ~/findns-work && cd ~/findns-work
 
-# دانلود فایل اصلی مدیریت
 cat << 'EOF' > super_manager.sh
 #!/bin/bash
 CONFIG_FILE=".findns_config"
@@ -13,6 +11,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; fi
@@ -20,16 +19,17 @@ if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; fi
 main_menu() {
     clear
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${GREEN}    Findns Ultimate Auto-Installer        ${NC}"
+    echo -e "${GREEN}    Findns Ultimate Auto-Manager          ${NC}"
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "1) [FULL SETUP] Install Dependencies & Build"
+    echo -e "1) ${CYAN}[FULL SETUP]${NC} Install & Build"
     echo -e "2) Set Config (Domain, Pubkey, Workers)"
     echo -e "3) Start Scanner (Background)"
     echo -e "4) View & Copy Results"
     echo -e "5) Stop Scanner"
     echo -e "6) Exit"
+    echo -e "7) ${RED}[UNINSTALL]${NC} Remove Everything"
     echo -e "${BLUE}------------------------------------------${NC}"
-    read -p "Select option [1-6]: " choice
+    read -p "Select option [1-7]: " choice
     case $choice in
         1) full_setup ;;
         2) setup_config ;;
@@ -37,20 +37,20 @@ main_menu() {
         4) view_results ;;
         5) stop_scanner ;;
         6) exit 0 ;;
+        7) uninstall_all ;;
         *) main_menu ;;
     esac
 }
 
 full_setup() {
+    echo -e "${YELLOW}Installing...${NC}"
     sudo apt update && sudo apt install git golang-go screen -y
     rm -rf findns-repo
     git clone https://github.com/SamNet-dev/findns.git findns-repo
-    cd findns-repo || exit
-    go build -o findns ./cmd
+    cd findns-repo && go build -o findns ./cmd && cd ..
     go install www.bamsoftware.com/git/dnstt.git/dnstt-client@latest
-    cp ~/go/bin/dnstt-client .
-    cd ..
-    echo -e "${GREEN}✔ Setup Done!${NC}"; sleep 2; main_menu
+    cp ~/go/bin/dnstt-client ./findns-repo/
+    echo -e "${GREEN}✔ Setup Completed!${NC}"; sleep 2; main_menu
 }
 
 setup_config() {
@@ -64,7 +64,7 @@ setup_config() {
     echo "DOMAIN=\"$DOMAIN\"" > "$CONFIG_FILE"
     echo "PUBKEY=\"$PUBKEY\"" >> "$CONFIG_FILE"
     echo "WORKERS=\"$WORKERS\"" >> "$CONFIG_FILE"
-    sleep 1; main_menu
+    echo -e "${GREEN}Saved!${NC}"; sleep 1; main_menu
 }
 
 start_scanner() {
@@ -77,19 +77,38 @@ start_scanner() {
             sleep 30
         done
     "
-    echo -e "${GREEN}Running...${NC}"; sleep 2; main_menu
+    echo -e "${GREEN}Scanner is running in background!${NC}"; sleep 2; main_menu
 }
 
 view_results() {
     clear
-    [ -s "$RESULT_FILE" ] && cat "$RESULT_FILE" || echo "No results yet."
-    read -p "Back..."
+    if [ -s "$RESULT_FILE" ]; then
+        echo -e "${GREEN}--- Found Resolvers ---${NC}"
+        cat "$RESULT_FILE"
+    else
+        echo -e "${RED}No results yet.${NC}"
+    fi
+    echo ""
+    read -p "Press Enter to back..."
     main_menu
 }
 
 stop_scanner() {
     screen -S findns_worker -X quit > /dev/null 2>&1
-    echo -e "${RED}Stopped.${NC}"; sleep 2; main_menu
+    echo -e "${RED}Scanner Stopped.${NC}"; sleep 2; main_menu
+}
+
+uninstall_all() {
+    read -p "Are you sure you want to remove everything? (y/n): " confirm
+    if [[ $confirm == [yY] ]]; then
+        screen -S findns_worker -X quit > /dev/null 2>&1
+        cd ~
+        rm -rf ~/findns-work
+        echo -e "${RED}All files and scanner removed successfully.${NC}"
+        exit 0
+    else
+        main_menu
+    fi
 }
 
 main_menu
